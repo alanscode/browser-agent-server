@@ -4,11 +4,15 @@ import asyncio
 import logging
 from typing import Optional, List, Dict, Any, Union
 from pydantic import BaseModel, Field
+from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Depends, Query, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, FileResponse
 import uvicorn
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Import functionality from webui_core.py
 from webui_core import (
@@ -402,9 +406,12 @@ async def close_browser():
 if __name__ == "__main__":
     import argparse
     
+    # Get default port from environment variable
+    default_port = int(os.getenv("API_BASE_PORT", "8000"))
+    
     parser = argparse.ArgumentParser(description="Browser Use API Server")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host to bind to")
-    parser.add_argument("--port", type=int, default=8000, help="Port to listen on")
+    parser.add_argument("--port", type=int, default=default_port, help=f"Port to listen on (default: {default_port})")
     args = parser.parse_args()
     
     uvicorn.run("api:app", host=args.host, port=args.port, reload=True) 

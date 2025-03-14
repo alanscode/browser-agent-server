@@ -9,10 +9,34 @@ import json
 import time
 import argparse
 import sys
+import os
+from dotenv import load_dotenv
+import urllib.parse
+
+# Load environment variables from .env file
+load_dotenv()
 
 class BrowserUseClient:
-    def __init__(self, base_url="http://localhost:8000"):
-        self.base_url = base_url
+    def __init__(self, base_url=None):
+        # Use the provided base_url, or construct it from environment variables
+        if base_url:
+            self.base_url = base_url
+        else:
+            # Get base URL and port from environment variables
+            base_url = os.getenv("API_BASE_URL", "http://localhost")
+            base_port = os.getenv("API_BASE_PORT", "8000")
+            
+            # Remove any trailing slashes from the base_url
+            base_url = base_url.rstrip('/')
+            
+            # Check if the base_url already includes a port
+            # Parse the URL to check for port
+            parsed_url = urllib.parse.urlparse(base_url)
+            
+            if parsed_url.port:
+                self.base_url = base_url
+            else:
+                self.base_url = f"{base_url}:{base_port}"
         
     def check_api_status(self):
         """Check if the API is running"""
@@ -171,8 +195,24 @@ class BrowserUseClient:
         return response.json()
 
 def main():
+    # Construct default URL from environment variables
+    default_base_url = os.getenv("API_BASE_URL", "http://localhost")
+    default_base_port = os.getenv("API_BASE_PORT", "8000")
+    
+    # Remove any trailing slashes from the base_url
+    default_base_url = default_base_url.rstrip('/')
+    
+    # Check if the base_url already includes a port
+    parsed_url = urllib.parse.urlparse(default_base_url)
+    
+    if parsed_url.port:
+        default_url = default_base_url
+    else:
+        default_url = f"{default_base_url}:{default_base_port}"
+    
     parser = argparse.ArgumentParser(description="Browser Use API Client")
-    parser.add_argument("--url", type=str, default="http://localhost:8000", help="API base URL")
+    parser.add_argument("--url", type=str, default=default_url, 
+                        help=f"API base URL (default: {default_url})")
     
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
     

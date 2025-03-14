@@ -28,6 +28,14 @@ from webui_core import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Custom JSON encoder to handle complex objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        try:
+            return super().default(obj)
+        except TypeError:
+            return str(obj)
+
 # Create FastAPI app
 app = FastAPI(
     title="Browser Use API",
@@ -140,6 +148,7 @@ async def run_agent_task(
             chrome_cdp=""
         )
         
+        # Correctly unpack all 10 values returned by run_browser_agent
         final_result, errors, model_actions, model_thoughts, latest_video, trace_file, history_file, _, _, _ = result
         
         return {
@@ -155,6 +164,8 @@ async def run_agent_task(
         }
     except Exception as e:
         logger.error(f"Error running agent: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         return {
             "task_id": task_id,
             "final_result": "",
@@ -238,6 +249,17 @@ async def get_agent_status(task_id: str):
         if isinstance(task_data, dict) and len(task_data) == 1 and "status" in task_data and task_data["status"] == "running":
             return {"status": "running", "message": f"Task {task_id} is still initializing"}
         
+        # Convert model_actions and model_thoughts to strings if they are lists
+        if "model_actions" in task_data and not isinstance(task_data["model_actions"], str):
+            task_data["model_actions"] = json.dumps(task_data["model_actions"], cls=CustomJSONEncoder)
+        
+        if "model_thoughts" in task_data and not isinstance(task_data["model_thoughts"], str):
+            task_data["model_thoughts"] = json.dumps(task_data["model_thoughts"], cls=CustomJSONEncoder)
+        
+        # Ensure errors is a string
+        if "errors" in task_data and not isinstance(task_data["errors"], str):
+            task_data["errors"] = json.dumps(task_data["errors"], cls=CustomJSONEncoder) if task_data["errors"] else ""
+        
         return task_data
     except Exception as e:
         logger.error(f"Error retrieving status for task {task_id}: {str(e)}")
@@ -283,7 +305,7 @@ async def run_deep_search_background(task_id, research_task, max_search_iteratio
     """Run the deep search in the background and store the result"""
     try:
         logger.info(f"Starting deep search for task_id: {task_id}")
-        markdown_content, file_path, _, _, _ = await run_deep_search(
+        result = await run_deep_search(
             research_task=research_task,
             max_search_iteration_input=max_search_iterations,
             max_query_per_iter_input=max_query_per_iteration,
@@ -298,6 +320,9 @@ async def run_deep_search_background(task_id, research_task, max_search_iteratio
             headless=config.headless,
             chrome_cdp=""
         )
+        
+        # Correctly unpack all 5 values returned by run_deep_search
+        markdown_content, file_path, _, _, _ = result
         
         logger.info(f"Deep search completed for task_id: {task_id}")
         running_tasks[task_id] = {

@@ -189,10 +189,154 @@ class BrowserUseClient:
         response = requests.get(url)
         return response.json()
     
+    def get_recording_file(self, filename, path=None):
+        """Get a specific recording file"""
+        url = f"{self.base_url}/recordings/{filename}"
+        if path:
+            url += f"?path={path}"
+            
+        response = requests.get(url, stream=True)
+        return response
+    
+    def get_agent_history(self, filename, path=None):
+        """Get a specific agent history file"""
+        url = f"{self.base_url}/agent/history/{filename}"
+        if path:
+            url += f"?path={path}"
+            
+        response = requests.get(url)
+        return response.json()
+    
+    def list_agent_history_files(self, path=None):
+        """List all available agent history files"""
+        url = f"{self.base_url}/agent/history-files"
+        if path:
+            url += f"?path={path}"
+            
+        response = requests.get(url)
+        return response.json()
+    
     def close_browser(self):
         """Close the browser instance"""
         response = requests.post(f"{self.base_url}/browser/close")
         return response.json()
+
+    def test_video_paths(self):
+        """Test function to verify video recording paths"""
+        print("\n=== Testing Video Recording Paths ===")
+        
+        # Step 1: Get list of all recordings
+        try:
+            recordings = self.get_recordings()
+            print(f"Found {len(recordings)} recordings")
+            
+            if not recordings:
+                print("No recordings found. Cannot test video paths.")
+                return
+                
+            # Print the first few recordings
+            for i, recording in enumerate(recordings[:5]):
+                print(f"Recording {i+1}: {recording}")
+                
+            # Step 2: Try to access the first recording
+            if recordings and len(recordings) > 0:
+                first_recording = recordings[0]
+                recording_path = first_recording.get('path')
+                recording_name = first_recording.get('name')
+                
+                if recording_name:
+                    # Extract filename from the name (remove any numbering)
+                    filename = recording_name.split('. ', 1)[-1] if '. ' in recording_name else recording_name
+                    
+                    print(f"\nTesting access to recording: {filename}")
+                    response = self.get_recording_file(filename)
+                    
+                    if response.status_code == 200:
+                        content_type = response.headers.get('Content-Type', '')
+                        content_length = response.headers.get('Content-Length', '0')
+                        print(f"Successfully accessed recording: {filename}")
+                        print(f"Content-Type: {content_type}")
+                        print(f"Content-Length: {content_length} bytes")
+                    else:
+                        print(f"Failed to access recording: {filename}")
+                        print(f"Status code: {response.status_code}")
+                        print(f"Response: {response.text[:200]}...")
+        except Exception as e:
+            print(f"Error testing video paths: {e}")
+    
+    def test_agent_history_video_links(self):
+        """Test function to verify video links in agent history files"""
+        print("\n=== Testing Agent History Video Links ===")
+        
+        try:
+            # Step 1: Get list of all agent history files
+            history_files = self.list_agent_history_files()
+            files = history_files.get('files', [])
+            
+            print(f"Found {len(files)} agent history files")
+            
+            if not files:
+                print("No agent history files found. Cannot test video links.")
+                return
+                
+            # Print the first few history files
+            for i, filename in enumerate(files[:5]):
+                print(f"History file {i+1}: {filename}")
+                
+            # Step 2: Get the first history file
+            if files and len(files) > 0:
+                first_file = files[0]
+                
+                print(f"\nTesting agent history file: {first_file}")
+                history_data = self.get_agent_history(first_file)
+                
+                # Step 3: Extract agent ID
+                agent_id = history_data.get('agent_id')
+                if not agent_id:
+                    print("No agent ID found in history file")
+                    return
+                    
+                print(f"Agent ID: {agent_id}")
+                
+                # Step 4: Check if a video exists for this agent ID
+                video_filename = f"{agent_id}.webm"
+                print(f"Checking for video file: {video_filename}")
+                
+                response = self.get_recording_file(video_filename)
+                if response.status_code == 200:
+                    content_type = response.headers.get('Content-Type', '')
+                    content_length = response.headers.get('Content-Length', '0')
+                    print(f"Successfully found video for agent: {agent_id}")
+                    print(f"Content-Type: {content_type}")
+                    print(f"Content-Length: {content_length} bytes")
+                    print(f"Video URL: {self.base_url}/recordings/{video_filename}")
+                else:
+                    print(f"No video found for agent: {agent_id}")
+                    print(f"Status code: {response.status_code}")
+                    
+                    # Try MP4 format as fallback
+                    video_filename = f"{agent_id}.mp4"
+                    print(f"Checking for alternative video file: {video_filename}")
+                    
+                    response = self.get_recording_file(video_filename)
+                    if response.status_code == 200:
+                        content_type = response.headers.get('Content-Type', '')
+                        content_length = response.headers.get('Content-Length', '0')
+                        print(f"Successfully found MP4 video for agent: {agent_id}")
+                        print(f"Content-Type: {content_type}")
+                        print(f"Content-Length: {content_length} bytes")
+                        print(f"Video URL: {self.base_url}/recordings/{video_filename}")
+                    else:
+                        print(f"No MP4 video found for agent: {agent_id}")
+                        print(f"Status code: {response.status_code}")
+                        
+                        # List all recordings to see what's available
+                        recordings = self.get_recordings()
+                        print("\nAvailable recordings:")
+                        for recording in recordings:
+                            print(f"- {recording.get('name', '')}")
+        except Exception as e:
+            print(f"Error testing agent history video links: {e}")
 
 def main():
     # Construct default URL from environment variables
@@ -246,6 +390,12 @@ def main():
     # Close browser command
     subparsers.add_parser("close-browser", help="Close the browser instance")
     
+    # Test video paths command
+    subparsers.add_parser("test-videos", help="Test video recording paths")
+    
+    # Test agent history video links command
+    subparsers.add_parser("test-history-videos", help="Test video links in agent history files")
+    
     args = parser.parse_args()
     
     # Create client
@@ -296,6 +446,12 @@ def main():
     elif args.command == "close-browser":
         result = client.close_browser()
         print(json.dumps(result, indent=2))
+        
+    elif args.command == "test-videos":
+        client.test_video_paths()
+        
+    elif args.command == "test-history-videos":
+        client.test_agent_history_video_links()
         
     else:
         parser.print_help()

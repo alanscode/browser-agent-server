@@ -402,6 +402,56 @@ async def close_browser():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error closing browser: {str(e)}")
 
+@app.get("/agent/history/{filename}")
+async def get_agent_history(filename: str, path: str = "./tmp/agent_history"):
+    """Get a specific agent history file"""
+    # Ensure the filename doesn't contain path traversal
+    safe_filename = os.path.basename(filename)
+    full_path = os.path.join(path, safe_filename)
+    
+    logger.info(f"Requested history file: {safe_filename}, full path: {full_path}")
+    
+    if not os.path.exists(full_path):
+        logger.error(f"History file not found: {full_path}")
+        # List available files for debugging
+        available_files = os.listdir(path) if os.path.exists(path) else []
+        logger.info(f"Available files in {path}: {available_files}")
+        raise HTTPException(status_code=404, detail=f"History file {safe_filename} not found. Available files: {available_files}")
+    
+    try:
+        logger.info(f"Reading history file: {full_path}")
+        with open(full_path, 'r') as f:
+            history_data = json.load(f)
+        logger.info(f"Successfully read history file: {full_path}")
+        return history_data
+    except json.JSONDecodeError as e:
+        logger.error(f"Error parsing JSON from history file {full_path}: {str(e)}")
+        # Return file content for debugging
+        try:
+            with open(full_path, 'r') as f:
+                content = f.read()
+            return {"error": f"Invalid JSON in history file: {str(e)}", "file_content": content[:1000] + "..." if len(content) > 1000 else content}
+        except Exception as read_error:
+            raise HTTPException(status_code=500, detail=f"Error reading history file: {str(read_error)}")
+    except Exception as e:
+        logger.error(f"Error reading history file {full_path}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading history file: {str(e)}")
+
+@app.get("/agent/history-files")
+async def list_agent_history_files(path: str = "./tmp/agent_history"):
+    """List all available agent history files"""
+    try:
+        if not os.path.exists(path):
+            return {"files": []}
+        
+        files = [f for f in os.listdir(path) if f.endswith('.json')]
+        files.sort(key=lambda x: os.path.getmtime(os.path.join(path, x)), reverse=True)
+        
+        return {"files": files}
+    except Exception as e:
+        logger.error(f"Error listing history files: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error listing history files: {str(e)}")
+
 # Run the API server
 if __name__ == "__main__":
     import argparse

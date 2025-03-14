@@ -43,38 +43,65 @@ class BrowserUseClient:
             
         # Start the agent run
         response = requests.post(f"{self.base_url}/agent/run", json=payload)
-        result = response.json()
         
         if response.status_code != 200:
-            print(f"Error starting agent: {result}")
+            print(f"Error starting agent: Status code {response.status_code}")
+            try:
+                result = response.json()
+                print(f"Error details: {result}")
+            except json.JSONDecodeError:
+                print(f"Error details (raw): {response.text}")
             return None
             
-        # Extract the task ID
-        task_id = result["message"].split("ID: ")[1]
-        print(f"Agent run started with ID: {task_id}")
-        
-        # Poll for the result
-        return self.poll_agent_status(task_id)
+        try:
+            result = response.json()
+            # Extract the task ID
+            task_id = result["message"].split("ID: ")[1]
+            print(f"Agent run started with ID: {task_id}")
+            
+            # Poll for the result
+            return self.poll_agent_status(task_id)
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error parsing response: {e}")
+            print(f"Raw response: {response.text}")
+            return None
     
     def poll_agent_status(self, task_id, interval=2, timeout=300):
         """Poll for the status of an agent run until it completes or times out"""
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            response = requests.get(f"{self.base_url}/agent/status/{task_id}")
-            
-            if response.status_code != 200:
-                print(f"Error checking status: {response.json()}")
-                return None
+            try:
+                response = requests.get(f"{self.base_url}/agent/status/{task_id}")
                 
-            result = response.json()
-            
-            if result.get("status") == "completed" or result.get("status") == "error":
-                return result
+                if response.status_code != 200:
+                    print(f"Error checking status: Status code {response.status_code}")
+                    try:
+                        error_details = response.json()
+                        print(f"Error details: {error_details}")
+                    except json.JSONDecodeError:
+                        print(f"Error details (raw): {response.text}")
+                    return None
                 
-            print(f"Task {task_id} is still running... (elapsed: {int(time.time() - start_time)}s)")
-            time.sleep(interval)
-            
+                # Try to parse the JSON response
+                try:
+                    result = response.json()
+                except json.JSONDecodeError:
+                    print(f"Error: Invalid JSON response from server")
+                    print(f"Raw response: {response.text}")
+                    # Wait and retry - this might be a temporary issue
+                    time.sleep(interval)
+                    continue
+                
+                if result.get("status") == "completed" or result.get("status") == "error":
+                    return result
+                    
+                print(f"Task {task_id} is still running... (elapsed: {int(time.time() - start_time)}s)")
+                time.sleep(interval)
+            except requests.RequestException as e:
+                print(f"Network error while checking status: {e}")
+                time.sleep(interval)
+                
         print(f"Timeout reached after {timeout} seconds")
         return None
     
@@ -101,38 +128,65 @@ class BrowserUseClient:
             
         # Start the deep search
         response = requests.post(f"{self.base_url}/deep-search/run", json=payload)
-        result = response.json()
         
         if response.status_code != 200:
-            print(f"Error starting deep search: {result}")
+            print(f"Error starting deep search: Status code {response.status_code}")
+            try:
+                result = response.json()
+                print(f"Error details: {result}")
+            except json.JSONDecodeError:
+                print(f"Error details (raw): {response.text}")
             return None
             
-        # Extract the task ID
-        task_id = result["message"].split("ID: ")[1]
-        print(f"Deep search started with ID: {task_id}")
-        
-        # Poll for the result
-        return self.poll_deep_search_status(task_id)
+        try:
+            result = response.json()
+            # Extract the task ID
+            task_id = result["message"].split("ID: ")[1]
+            print(f"Deep search started with ID: {task_id}")
+            
+            # Poll for the result
+            return self.poll_deep_search_status(task_id)
+        except (KeyError, json.JSONDecodeError) as e:
+            print(f"Error parsing response: {e}")
+            print(f"Raw response: {response.text}")
+            return None
     
     def poll_deep_search_status(self, task_id, interval=2, timeout=600):
         """Poll for the status of a deep search until it completes or times out"""
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            response = requests.get(f"{self.base_url}/deep-search/status/{task_id}")
-            
-            if response.status_code != 200:
-                print(f"Error checking status: {response.json()}")
-                return None
+            try:
+                response = requests.get(f"{self.base_url}/deep-search/status/{task_id}")
                 
-            result = response.json()
-            
-            if result.get("status") == "completed" or result.get("status") == "error":
-                return result
+                if response.status_code != 200:
+                    print(f"Error checking status: Status code {response.status_code}")
+                    try:
+                        error_details = response.json()
+                        print(f"Error details: {error_details}")
+                    except json.JSONDecodeError:
+                        print(f"Error details (raw): {response.text}")
+                    return None
                 
-            print(f"Task {task_id} is still running... (elapsed: {int(time.time() - start_time)}s)")
-            time.sleep(interval)
-            
+                # Try to parse the JSON response
+                try:
+                    result = response.json()
+                except json.JSONDecodeError:
+                    print(f"Error: Invalid JSON response from server")
+                    print(f"Raw response: {response.text}")
+                    # Wait and retry - this might be a temporary issue
+                    time.sleep(interval)
+                    continue
+                
+                if result.get("status") == "completed" or result.get("status") == "error":
+                    return result
+                    
+                print(f"Task {task_id} is still running... (elapsed: {int(time.time() - start_time)}s)")
+                time.sleep(interval)
+            except requests.RequestException as e:
+                print(f"Network error while checking status: {e}")
+                time.sleep(interval)
+                
         print(f"Timeout reached after {timeout} seconds")
         return None
     

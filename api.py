@@ -204,8 +204,26 @@ async def start_agent_run(
 
 async def run_agent_background(task_id, config, task, add_infos):
     """Run the agent in the background and store the result"""
-    result = await run_agent_task(task_id, config, task, add_infos)
-    running_tasks[task_id] = result
+    try:
+        logger.info(f"Starting agent run for task_id: {task_id}")
+        result = await run_agent_task(task_id, config, task, add_infos)
+        logger.info(f"Agent run completed for task_id: {task_id}")
+        running_tasks[task_id] = result
+    except Exception as e:
+        logger.error(f"Unhandled exception in run_agent_background for task_id {task_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        running_tasks[task_id] = {
+            "task_id": task_id,
+            "final_result": "",
+            "errors": f"Unhandled error: {str(e)}",
+            "model_actions": "",
+            "model_thoughts": "",
+            "latest_video": None,
+            "trace_file": None,
+            "history_file": None,
+            "status": "error"
+        }
 
 @app.get("/agent/status/{task_id}", response_model=Union[StatusResponse, AgentRunResponse])
 async def get_agent_status(task_id: str):
@@ -213,7 +231,19 @@ async def get_agent_status(task_id: str):
     if task_id not in running_tasks:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     
-    return running_tasks[task_id]
+    try:
+        task_data = running_tasks[task_id]
+        
+        # If the task is just marked as running but has no other data yet
+        if isinstance(task_data, dict) and len(task_data) == 1 and "status" in task_data and task_data["status"] == "running":
+            return {"status": "running", "message": f"Task {task_id} is still initializing"}
+        
+        return task_data
+    except Exception as e:
+        logger.error(f"Error retrieving status for task {task_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving task status: {str(e)}")
 
 @app.post("/agent/stop", response_model=StatusResponse)
 async def stop_agent_run():
@@ -252,6 +282,7 @@ async def start_deep_search(
 async def run_deep_search_background(task_id, research_task, max_search_iterations, max_query_per_iteration, config):
     """Run the deep search in the background and store the result"""
     try:
+        logger.info(f"Starting deep search for task_id: {task_id}")
         markdown_content, file_path, _, _, _ = await run_deep_search(
             research_task=research_task,
             max_search_iteration_input=max_search_iterations,
@@ -268,6 +299,7 @@ async def run_deep_search_background(task_id, research_task, max_search_iteratio
             chrome_cdp=""
         )
         
+        logger.info(f"Deep search completed for task_id: {task_id}")
         running_tasks[task_id] = {
             "task_id": task_id,
             "markdown_content": markdown_content,
@@ -275,7 +307,9 @@ async def run_deep_search_background(task_id, research_task, max_search_iteratio
             "status": "completed"
         }
     except Exception as e:
-        logger.error(f"Error running deep search: {str(e)}")
+        logger.error(f"Unhandled exception in run_deep_search_background for task_id {task_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
         running_tasks[task_id] = {
             "task_id": task_id,
             "markdown_content": f"Error: {str(e)}",
@@ -289,7 +323,19 @@ async def get_deep_search_status(task_id: str):
     if task_id not in running_tasks:
         raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
     
-    return running_tasks[task_id]
+    try:
+        task_data = running_tasks[task_id]
+        
+        # If the task is just marked as running but has no other data yet
+        if isinstance(task_data, dict) and len(task_data) == 1 and "status" in task_data and task_data["status"] == "running":
+            return {"status": "running", "message": f"Task {task_id} is still initializing"}
+        
+        return task_data
+    except Exception as e:
+        logger.error(f"Error retrieving status for deep search task {task_id}: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error retrieving task status: {str(e)}")
 
 @app.post("/deep-search/stop", response_model=StatusResponse)
 async def stop_deep_search():

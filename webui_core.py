@@ -3,6 +3,7 @@ import logging
 import asyncio
 import os
 import glob
+import json
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -186,6 +187,7 @@ async def run_browser_agent(
                 save_agent_history_path=save_agent_history_path,
                 save_trace_path=save_trace_path,
                 task=task,
+                add_infos=add_infos,
                 max_steps=max_steps,
                 use_vision=use_vision,
                 max_actions_per_step=max_actions_per_step,
@@ -224,6 +226,27 @@ async def run_browser_agent(
             )
             if new_videos - existing_videos:
                 latest_video = list(new_videos - existing_videos)[0]  # Get the first new video
+                
+                # Extract just the filename from the path for the video ID
+                # Remove the file extension to avoid duplication in the client
+                latest_video_id = os.path.basename(latest_video)
+                latest_video_id = os.path.splitext(latest_video_id)[0]  # Remove extension
+                
+                # Update the history file with the video ID if it exists
+                if history_file and os.path.exists(history_file):
+                    try:
+                        with open(history_file, 'r') as f:
+                            history_data = json.load(f)
+                        
+                        # Add the video ID to the history data
+                        history_data['video_id'] = latest_video_id
+                        history_data['original_prompt'] = task
+                        
+                        # Write the updated history data back to the file
+                        with open(history_file, 'w') as f:
+                            json.dump(history_data, f, indent=2)
+                    except Exception as e:
+                        logger.error(f"Error updating history file with video ID: {str(e)}")
 
         return (
             final_result,
@@ -268,6 +291,7 @@ async def run_org_agent(
         save_agent_history_path,
         save_trace_path,
         task,
+        add_infos,
         max_steps,
         use_vision,
         max_actions_per_step,
@@ -333,6 +357,23 @@ async def run_org_agent(
 
         history_file = os.path.join(save_agent_history_path, f"{_global_agent.agent_id}.json")
         _global_agent.save_history(history_file)
+        
+        # Add original prompt and additional info to the history file
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, 'r') as f:
+                    history_data = json.load(f)
+                
+                # Add the original prompt and additional info to the history data
+                history_data['original_prompt'] = task
+                if add_infos:
+                    history_data['add_infos'] = add_infos
+                
+                # Write the updated history data back to the file
+                with open(history_file, 'w') as f:
+                    json.dump(history_data, f, indent=2)
+            except Exception as e:
+                logger.error(f"Error updating history file with original prompt: {str(e)}")
 
         final_result = history.final_result()
         errors = history.errors()
@@ -445,6 +486,23 @@ async def run_custom_agent(
 
         history_file = os.path.join(save_agent_history_path, f"{_global_agent.agent_id}.json")
         _global_agent.save_history(history_file)
+        
+        # Add original prompt and additional info to the history file
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, 'r') as f:
+                    history_data = json.load(f)
+                
+                # Add the original prompt and additional info to the history data
+                history_data['original_prompt'] = task
+                if add_infos:
+                    history_data['add_infos'] = add_infos
+                
+                # Write the updated history data back to the file
+                with open(history_file, 'w') as f:
+                    json.dump(history_data, f, indent=2)
+            except Exception as e:
+                logger.error(f"Error updating history file with original prompt: {str(e)}")
 
         final_result = history.final_result()
         errors = history.errors()

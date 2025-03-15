@@ -179,6 +179,9 @@ cv_04_24.pdf
 AgentHistoryList.json
 *.gif
 
+# Ignore all files that start with "agent_test_"
+agent_test_*
+
 # For Sharing (.pem files)
 .gradio/
 

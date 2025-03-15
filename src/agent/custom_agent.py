@@ -64,7 +64,7 @@ class CustomAgent(Agent):
             max_input_tokens: int = 128000,
             validate_output: bool = False,
             message_context: Optional[str] = None,
-            generate_gif: bool | str = True,
+            generate_gif: bool | str = False,
             sensitive_data: Optional[Dict[str, str]] = None,
             available_file_paths: Optional[list[str]] = None,
             include_attributes: list[str] = [
@@ -463,13 +463,6 @@ class CustomAgent(Agent):
 
             if not self.injected_browser and self.browser:
                 await self.browser.close()
-
-            if self.generate_gif:
-                output_path: str = 'agent_history.gif'
-                if isinstance(self.generate_gif, str):
-                    output_path = self.generate_gif
-
-                self.create_history_gif(output_path=output_path)
 
     def create_history_gif(
             self,

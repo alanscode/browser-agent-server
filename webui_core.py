@@ -242,11 +242,30 @@ async def run_browser_agent(
                         history_data['video_id'] = latest_video_id
                         history_data['original_prompt'] = task
                         
+                        # Enhance history data with detailed element information for Cypress testing
+                        if 'history' in history_data:
+                            for step in history_data['history']:
+                                if 'model_output' in step and 'action' in step['model_output']:
+                                    action_list = step['model_output']['action']
+                                    for action_item in action_list:
+                                        # Enhance click actions with more element details
+                                        if 'click' in action_item:
+                                            # Add element type and purpose if available from observation
+                                            if 'observation' in step:
+                                                action_item['click']['element_type'] = _extract_element_type(step['observation'])
+                                                action_item['click']['element_purpose'] = _extract_element_purpose(step['observation'])
+                                        
+                                        # Enhance type actions with field information
+                                        elif 'type' in action_item:
+                                            if 'observation' in step:
+                                                action_item['type']['field_type'] = _extract_field_type(step['observation'])
+                                                action_item['type']['field_purpose'] = _extract_field_purpose(step['observation'])
+                        
                         # Write the updated history data back to the file
                         with open(history_file, 'w') as f:
                             json.dump(history_data, f, indent=2)
                     except Exception as e:
-                        logger.error(f"Error updating history file with video ID: {str(e)}")
+                        logger.error(f"Error updating history file with enhanced data: {str(e)}")
 
         return (
             final_result,
@@ -369,11 +388,30 @@ async def run_org_agent(
                 if add_infos:
                     history_data['add_infos'] = add_infos
                 
+                # Enhance history data with detailed element information for Cypress testing
+                if 'history' in history_data:
+                    for step in history_data['history']:
+                        if 'model_output' in step and 'action' in step['model_output']:
+                            action_list = step['model_output']['action']
+                            for action_item in action_list:
+                                # Enhance click actions with more element details
+                                if 'click' in action_item:
+                                    # Add element type and purpose if available from observation
+                                    if 'observation' in step:
+                                        action_item['click']['element_type'] = _extract_element_type(step['observation'])
+                                        action_item['click']['element_purpose'] = _extract_element_purpose(step['observation'])
+                                
+                                # Enhance type actions with field information
+                                elif 'type' in action_item:
+                                    if 'observation' in step:
+                                        action_item['type']['field_type'] = _extract_field_type(step['observation'])
+                                        action_item['type']['field_purpose'] = _extract_field_purpose(step['observation'])
+                
                 # Write the updated history data back to the file
                 with open(history_file, 'w') as f:
                     json.dump(history_data, f, indent=2)
             except Exception as e:
-                logger.error(f"Error updating history file with original prompt: {str(e)}")
+                logger.error(f"Error updating history file with enhanced data: {str(e)}")
 
         final_result = history.final_result()
         errors = history.errors()
@@ -498,11 +536,30 @@ async def run_custom_agent(
                 if add_infos:
                     history_data['add_infos'] = add_infos
                 
+                # Enhance history data with detailed element information for Cypress testing
+                if 'history' in history_data:
+                    for step in history_data['history']:
+                        if 'model_output' in step and 'action' in step['model_output']:
+                            action_list = step['model_output']['action']
+                            for action_item in action_list:
+                                # Enhance click actions with more element details
+                                if 'click' in action_item:
+                                    # Add element type and purpose if available from observation
+                                    if 'observation' in step:
+                                        action_item['click']['element_type'] = _extract_element_type(step['observation'])
+                                        action_item['click']['element_purpose'] = _extract_element_purpose(step['observation'])
+                                
+                                # Enhance type actions with field information
+                                elif 'type' in action_item:
+                                    if 'observation' in step:
+                                        action_item['type']['field_type'] = _extract_field_type(step['observation'])
+                                        action_item['type']['field_purpose'] = _extract_field_purpose(step['observation'])
+                
                 # Write the updated history data back to the file
                 with open(history_file, 'w') as f:
                     json.dump(history_data, f, indent=2)
             except Exception as e:
-                logger.error(f"Error updating history file with original prompt: {str(e)}")
+                logger.error(f"Error updating history file with enhanced data: {str(e)}")
 
         final_result = history.final_result()
         errors = history.errors()
@@ -760,3 +817,125 @@ def list_recordings(save_recording_path):
         numbered_recordings.append((recording, f"{idx}. {filename}"))
 
     return numbered_recordings 
+
+async def generate_cypress_test(history_file_path):
+    """Generate a Cypress test script from an agent history file"""
+    try:
+        import sys
+        import os
+        
+        # Add the current directory to the Python path
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        if current_dir not in sys.path:
+            sys.path.insert(0, current_dir)
+            
+        from src.utils.cypress_generator import CypressScriptGenerator
+        
+        # Create generator with default output directory
+        generator = CypressScriptGenerator()
+        
+        # Generate the test script
+        output_path = generator.generate_from_history(history_file_path)
+        
+        # Read the generated file to return its contents
+        with open(output_path, 'r') as f:
+            script_content = f.read()
+            
+        return script_content, output_path, ""  # Return content, path, and empty error
+    except Exception as e:
+        import traceback
+        error_msg = f"Error generating Cypress test: {str(e)}\n{traceback.format_exc()}"
+        return "", "", error_msg 
+
+# Add helper methods for extracting element information
+def _extract_element_type(observation):
+    """Extract the type of element (button, link, etc.) from observation"""
+    if not observation:
+        return "unknown"
+    
+    # Try to determine element type from observation text
+    observation_text = str(observation)
+    if "button" in observation_text.lower():
+        return "button"
+    elif "link" in observation_text.lower() or "href" in observation_text.lower():
+        return "link"
+    elif "input" in observation_text.lower() or "field" in observation_text.lower():
+        return "input"
+    elif "select" in observation_text.lower() or "dropdown" in observation_text.lower():
+        return "select"
+    elif "checkbox" in observation_text.lower():
+        return "checkbox"
+    elif "radio" in observation_text.lower():
+        return "radio"
+    else:
+        return "element"
+
+def _extract_element_purpose(observation):
+    """Extract the purpose of the element from observation"""
+    if not observation:
+        return ""
+    
+    # Try to determine element purpose from observation text
+    observation_text = str(observation)
+    
+    # Look for common button/link purposes
+    if "submit" in observation_text.lower():
+        return "submit"
+    elif "login" in observation_text.lower():
+        return "login"
+    elif "register" in observation_text.lower() or "sign up" in observation_text.lower():
+        return "register"
+    elif "search" in observation_text.lower():
+        return "search"
+    elif "add" in observation_text.lower():
+        return "add"
+    elif "delete" in observation_text.lower() or "remove" in observation_text.lower():
+        return "delete"
+    elif "edit" in observation_text.lower() or "update" in observation_text.lower():
+        return "edit"
+    else:
+        return ""
+
+def _extract_field_type(observation):
+    """Extract the type of field from observation"""
+    if not observation:
+        return "text"
+    
+    observation_text = str(observation)
+    if "password" in observation_text.lower():
+        return "password"
+    elif "email" in observation_text.lower():
+        return "email"
+    elif "number" in observation_text.lower():
+        return "number"
+    elif "date" in observation_text.lower():
+        return "date"
+    elif "search" in observation_text.lower():
+        return "search"
+    else:
+        return "text"
+
+def _extract_field_purpose(observation):
+    """Extract the purpose of the field from observation"""
+    if not observation:
+        return ""
+    
+    observation_text = str(observation)
+    if "username" in observation_text.lower():
+        return "username"
+    elif "password" in observation_text.lower():
+        return "password"
+    elif "email" in observation_text.lower():
+        return "email"
+    elif "search" in observation_text.lower():
+        return "search"
+    elif "first name" in observation_text.lower():
+        return "first_name"
+    elif "last name" in observation_text.lower():
+        return "last_name"
+    elif "address" in observation_text.lower():
+        return "address"
+    elif "phone" in observation_text.lower():
+        return "phone"
+    else:
+        return ""

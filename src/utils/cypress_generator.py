@@ -30,6 +30,8 @@ def generate_cypress_test(agent_history_path: str, output_dir: str = None) -> st
     
     # Extract the original prompt to use as test description
     original_prompt = agent_history.get('original_prompt', 'Agent test')
+    # Clean up the prompt for JavaScript - replace newlines with spaces
+    clean_prompt = original_prompt.replace('\n', ' ').replace('\r', ' ')
     
     # Generate a timestamp for the filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -41,12 +43,12 @@ def generate_cypress_test(agent_history_path: str, output_dir: str = None) -> st
     
     test_script = []
     test_script.append("// Cypress test generated from agent history")
-    test_script.append("// Original prompt: " + original_prompt)
+    test_script.append("// Original prompt: " + clean_prompt)
     test_script.append("// Generated at: " + current_time)
     test_script.append("// Note: This test may fail if Google shows a CAPTCHA challenge")
     test_script.append("")
     test_script.append("describe('Agent Test', () => {")
-    test_script.append("  it('" + original_prompt.replace("'", "\\'") + "', () => {")
+    test_script.append("  it('" + clean_prompt.replace("'", "\\'") + "', () => {")
     
     # Process each step in the agent history
     for step in agent_history.get('history', []):
@@ -113,14 +115,10 @@ def _extract_actions(step: Dict[str, Any]) -> List[str]:
                 selector = _get_best_selector(element_details)
                 # Escape single quotes in the selector
                 selector = selector.replace("'", "\\'")
-                
-                # For the Google Search button, we need to handle it differently
-                # because there are multiple buttons with the same selector
-                if "btnK" in selector:
-                    # Add a wait for the button to be visible and force the click
-                    actions.append("cy.get('" + selector + "').first().should('be.visible').click({force: true})")
-                else:
-                    actions.append("cy.get('" + selector + "').click()")
+                actions.append("cy.get('" + selector + "').click()")
+        
+        # Handle other action types as needed
+        # For example, you might want to handle scrolling, keyboard actions, etc.
     
     return actions
 
@@ -231,8 +229,3 @@ def run_cypress_test(test_path: str, headless: bool = True) -> None:
         # Change back to the original directory
         os.chdir(current_dir)
 
-if __name__ == "__main__":
-    # Example usage
-    test_path = generate_cypress_test("browser-agent-server/tmp/agent_history/test.json")
-    # Uncomment to run the test
-    # run_cypress_test(test_path)

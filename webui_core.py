@@ -410,6 +410,11 @@ async def run_org_agent(
                 # Write the updated history data back to the file
                 with open(history_file, 'w') as f:
                     json.dump(history_data, f, indent=2)
+                    
+                # Generate Cypress test for this history file
+                from src.utils.cypress_generator import generate_cypress_test
+                cypress_test_path = generate_cypress_test(history_file)
+                logger.info(f"Generated Cypress test: {cypress_test_path}")
             except Exception as e:
                 logger.error(f"Error updating history file with enhanced data: {str(e)}")
 
@@ -558,6 +563,11 @@ async def run_custom_agent(
                 # Write the updated history data back to the file
                 with open(history_file, 'w') as f:
                     json.dump(history_data, f, indent=2)
+                    
+                # Generate Cypress test for this history file
+                from src.utils.cypress_generator import generate_cypress_test
+                cypress_test_path = generate_cypress_test(history_file)
+                logger.info(f"Generated Cypress test: {cypress_test_path}")
             except Exception as e:
                 logger.error(f"Error updating history file with enhanced data: {str(e)}")
 

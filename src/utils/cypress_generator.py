@@ -15,11 +15,9 @@ def generate_cypress_test(agent_history_path: str, output_dir: str = None) -> st
     Returns:
         Path to the generated Cypress test script
     """
-    # Use top-level cypress/e2e folder if output_dir is not specified
+    # Use ./tmp/cypress folder if output_dir is not specified
     if output_dir is None:
-        # Get the project root directory (3 levels up from this file)
-        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        output_dir = os.path.join(project_root, "generated-cypress")
+        output_dir = "./tmp/cypress"
     
     # Create output directory if it doesn't exist
     os.makedirs(output_dir, exist_ok=True)
@@ -33,9 +31,10 @@ def generate_cypress_test(agent_history_path: str, output_dir: str = None) -> st
     # Clean up the prompt for JavaScript - replace newlines with spaces
     clean_prompt = original_prompt.replace('\n', ' ').replace('\r', ' ')
     
-    # Generate a timestamp for the filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    test_name = "agent_test_" + timestamp + ".cy.js"
+    # Use the agent_history filename for the test name
+    base_filename = os.path.basename(agent_history_path)
+    filename_without_ext = os.path.splitext(base_filename)[0]
+    test_name = filename_without_ext + ".cy.js"
     output_path = os.path.join(output_dir, test_name)
     
     # Generate the test script content

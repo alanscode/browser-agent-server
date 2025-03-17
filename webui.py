@@ -74,7 +74,8 @@ async def stop_agent():
 
     try:
         # Request stop
-        _global_agent.stop()
+        if _global_agent:
+            _global_agent.stop()
 
         # Update UI immediately
         message = "Stop requested - the agent will halt at the next safe point"
@@ -150,6 +151,11 @@ async def run_browser_agent(
     _global_agent_state.clear_stop()  # Clear any previous stop requests
 
     try:
+        # Set environment variables for Chrome CDP if provided
+        if chrome_cdp and chrome_cdp.strip():
+            os.environ["CHROME_CDP"] = chrome_cdp.strip()
+            logger.info(f"Setting CHROME_CDP to {chrome_cdp.strip()}")
+        
         # Disable recording if the checkbox is unchecked
         if not enable_recording:
             save_recording_path = None
@@ -290,6 +296,7 @@ async def run_org_agent(
 
         if use_own_browser:
             cdp_url = os.getenv("CHROME_CDP", chrome_cdp)
+            logger.info(f"Using CDP URL: {cdp_url}")
             chrome_path = os.getenv("CHROME_PATH", None)
             if chrome_path == "":
                 chrome_path = None
@@ -316,7 +323,6 @@ async def run_org_agent(
                 config=BrowserContextConfig(
                     trace_path=save_trace_path if save_trace_path else None,
                     save_recording_path=save_recording_path if save_recording_path else None,
-                    cdp_url=cdp_url,
                     no_viewport=False,
                     browser_window_size=BrowserContextWindowSize(
                         width=window_w, height=window_h
@@ -393,6 +399,7 @@ async def run_custom_agent(
         cdp_url = chrome_cdp
         if use_own_browser:
             cdp_url = os.getenv("CHROME_CDP", chrome_cdp)
+            logger.info(f"Using CDP URL: {cdp_url}")
 
             chrome_path = os.getenv("CHROME_PATH", None)
             if chrome_path == "":
@@ -875,22 +882,25 @@ def create_ui(config, theme_name="Ocean"):
                             info="Browser window height",
                         )
 
-
-                    save_recording_path = gr.Textbox(
-                        label="Recording Path",
-                        placeholder="e.g. ./tmp/record_videos",
-                        value=config['save_recording_path'],
-                        info="Path to save browser recordings",
-                        interactive=True,  # Allow editing only if recording is enabled
-                    )
-
-                    chrome_cdp = gr.Textbox(
-                        label="CDP URL",
-                        placeholder="http://localhost:9222",
-                        value="",
-                        info="CDP for google remote debugging",
-                        interactive=True,  # Allow editing only if recording is enabled
-                    )
+                    with gr.Group():
+                        gr.Markdown("### Chrome Remote Debugging Settings")
+                        gr.Markdown("""
+                        To use your existing Chrome browser:
+                        1. Close all Chrome instances
+                        2. Start Chrome with remote debugging enabled by running this command in PowerShell:
+                        ```
+                        Start-Process "C:\Program Files\Google\Chrome\Application\chrome.exe" -ArgumentList "--remote-debugging-port=9222"
+                        ```
+                        3. Enter the CDP URL below (usually http://localhost:9222)
+                        4. Check the "Use Own Browser" option above
+                        """)
+                        chrome_cdp = gr.Textbox(
+                            label="Chrome CDP URL",
+                            placeholder="http://localhost:9222",
+                            value="",
+                            info="CDP URL for connecting to your existing Chrome instance",
+                            interactive=True,
+                        )
 
                     save_recording_path = gr.Textbox(
                         label="Recording Path",
